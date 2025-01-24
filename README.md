@@ -90,6 +90,8 @@ For users, they can write code in a simple way, just like writing multi-thread c
 pip install parl
 ```
 
+[Detailed Installation Guide (Continuously Updated)](docs/installation_guide.md)
+
 # Getting Started
 Several-points to get you started:
 - [Tutorial](https://parl.readthedocs.io/en/latest/tutorial/getting_started.html) : How to solve cartpole problem.
