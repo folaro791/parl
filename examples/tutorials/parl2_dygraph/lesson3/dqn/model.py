@@ -14,13 +14,13 @@
 
 #-*- coding: utf-8 -*-
 
-import paddle
-import paddle.nn as nn
-import paddle.nn.functional as F
-import parl
+import torch
+import numpy as np
+import torch.nn as nn
+import torch.nn.functional as F
 
 
-class Model(parl.Model):
+class Model(nn.Module):
     """ 使用全连接网络.
 
     参数:
@@ -38,6 +38,12 @@ class Model(parl.Model):
         self.fc3 = nn.Linear(hid2_size, act_dim)
 
     def forward(self, obs):
+        if isinstance(obs, np.ndarray):
+            obs = torch.from_numpy(obs).float()
+        elif isinstance(obs, list):
+            obs = torch.tensor(obs, dtype=torch.float32)
+        elif not torch.is_tensor(obs):
+            obs = torch.tensor(obs, dtype=torch.float32)
         h1 = F.relu(self.fc1(obs))
         h2 = F.relu(self.fc2(h1))
         Q = self.fc3(h2)

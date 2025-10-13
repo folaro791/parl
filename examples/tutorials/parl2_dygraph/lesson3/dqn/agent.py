@@ -15,14 +15,13 @@
 #-*- coding: utf-8 -*-
 
 import parl
-import paddle
+import torch
 import numpy as np
 
 
 class Agent(parl.Agent):
     def __init__(self, algorithm, act_dim, e_greed=0.1, e_greed_decrement=0):
         super(Agent, self).__init__(algorithm)
-        assert isinstance(act_dim, int)
         self.act_dim = act_dim
 
         self.global_step = 0
@@ -46,9 +45,8 @@ class Agent(parl.Agent):
     def predict(self, obs):
         """ 根据观测值 obs 选择最优动作
         """
-        obs = paddle.to_tensor(obs, dtype='float32')
         pred_q = self.alg.predict(obs)
-        act = int(pred_q.argmax())  # 选择Q最大的下标，即对应的动作
+        act = int(pred_q.argmax().item())  # 选择Q最大的下标，即对应的动作
         return act
 
     def learn(self, obs, act, reward, next_obs, terminal):
@@ -62,10 +60,22 @@ class Agent(parl.Agent):
         reward = np.expand_dims(reward, axis=-1)
         terminal = np.expand_dims(terminal, axis=-1)
 
-        obs = paddle.to_tensor(obs, dtype='float32')
-        act = paddle.to_tensor(act, dtype='int32')
-        reward = paddle.to_tensor(reward, dtype='float32')
-        next_obs = paddle.to_tensor(next_obs, dtype='float32')
-        terminal = paddle.to_tensor(terminal, dtype='float32')
-        loss = self.alg.learn(obs, act, reward, next_obs, terminal)  # 训练一次网络
+        # 转为torch tensor，先确保为np.ndarray
+        if isinstance(obs, list):
+            obs = np.array(obs)
+        if isinstance(act, list):
+            act = np.array(act)
+        if isinstance(reward, list):
+            reward = np.array(reward)
+        if isinstance(next_obs, list):
+            next_obs = np.array(next_obs)
+        if isinstance(terminal, list):
+            terminal = np.array(terminal)
+
+        obs_tensor = torch.FloatTensor(obs)
+        act_tensor = torch.LongTensor(act)
+        reward_tensor = torch.FloatTensor(reward)
+        next_obs_tensor = torch.FloatTensor(next_obs)
+        terminal_tensor = torch.FloatTensor(terminal)
+        loss = self.alg.learn(obs_tensor, act_tensor, reward_tensor, next_obs_tensor, terminal_tensor)  # 训练一次网络
         return float(loss)

@@ -16,7 +16,9 @@
 
 import copy
 import parl
-import paddle
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class DQN(parl.Algorithm):
@@ -34,48 +36,36 @@ class DQN(parl.Algorithm):
 
         self.model = model
         self.target_model = copy.deepcopy(model)
-
         self.gamma = gamma
         self.lr = lr
-
-        self.mse_loss = paddle.nn.MSELoss(reduction='mean')
-        self.optimizer = paddle.optimizer.Adam(
-            learning_rate=lr, parameters=self.model.parameters())  # 使用Adam优化器
+        self.mse_loss = nn.MSELoss(reduction='mean')
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
     def predict(self, obs):
-        """ 使用self.model的网络来获取 [Q(s,a1),Q(s,a2),...]
-        """
-        return self.model(obs)
+        with torch.no_grad():
+            return self.model(obs)
 
     def learn(self, obs, action, reward, next_obs, terminal):
-        """ 使用DQN算法更新self.model的value网络
-        """
-        # 获取Q预测值
-        pred_values = self.model(obs)
-        action_dim = pred_values.shape[-1]
-        action = paddle.squeeze(action, axis=-1)
-        # 将action转onehot向量，比如：3 => [0,0,0,1,0]
-        action_onehot = paddle.nn.functional.one_hot(
-            action, num_classes=action_dim)
-        # 下面一行是逐元素相乘，拿到action对应的 Q(s,a)
-        # 比如：pred_value = [[2.3, 5.7, 1.2, 3.9, 1.4]], action_onehot = [[0,0,0,1,0]]
-        pred_value = pred_values * action_onehot
-        #  ==> pred_value = [[3.9]]
-        pred_value = paddle.sum(pred_value, axis=1, keepdim=True)
+        obs_tensor = torch.FloatTensor(obs)
+        action_tensor = torch.LongTensor(action).squeeze(-1)
+        reward_tensor = torch.FloatTensor(reward)
+        next_obs_tensor = torch.FloatTensor(next_obs)
+        terminal_tensor = torch.FloatTensor(terminal)
 
-        # 从target_model中获取 max Q' 的值，用于计算target_Q
-        with paddle.no_grad():
-            max_v = self.target_model(next_obs).max(1, keepdim=True)
-            target = reward + (1 - terminal) * self.gamma * max_v
+        pred_values = self.model(obs_tensor)
+        action_dim = pred_values.shape[-1]
+        action_onehot = F.one_hot(action_tensor, num_classes=action_dim)
+        pred_value = torch.sum(pred_values * action_onehot, dim=1, keepdim=True)
+
+        with torch.no_grad():
+            max_v = self.target_model(next_obs_tensor).max(1, keepdim=True)[0]
+            target = reward_tensor + (1 - terminal_tensor) * self.gamma * max_v
         loss = self.mse_loss(pred_value, target)
 
-        # 计算 Q(s,a) 与 target_Q的均方差，得到loss
-        self.optimizer.clear_grad()
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return loss
+        return loss.item()
 
     def sync_target(self):
-        """ 把 self.model 的模型参数值同步到 self.target_model
-        """
-        self.model.sync_weights_to(self.target_model)
+        self.target_model.load_state_dict(self.model.state_dict())

@@ -15,17 +15,9 @@
 #-*- coding: utf-8 -*-
 
 # 检查版本
-import gym
-import parl
-import paddle
-assert paddle.__version__ == "2.2.0", "[Version WARNING] please try `pip install paddlepaddle==2.2.0`"
-assert parl.__version__ == "2.0.3", "[Version WARNING] please try `pip install parl==2.0.3`"
-assert gym.__version__ == "0.18.0", "[Version WARNING] please try `pip install gym==0.18.0`"
+import gymnasium as gym
 
-import os
-import gym
 import numpy as np
-import parl
 from parl.utils import logger  # 日志打印工具
 
 from model import Model
@@ -45,12 +37,12 @@ GAMMA = 0.99  # reward 的衰减因子，一般取 0.9 到 0.999 不等
 # 训练一个episode
 def run_train_episode(agent, env, rpm):
     total_reward = 0
-    obs = env.reset()
+    obs = env.reset()[0]
     step = 0
     while True:
         step += 1
         action = agent.sample(obs)  # 采样动作，所有动作都有概率被尝试到
-        next_obs, reward, done, _ = env.step(action)
+        next_obs, reward, done, _,_ = env.step(action)
         rpm.append((obs, action, reward, next_obs, done))
 
         # train model
@@ -69,27 +61,27 @@ def run_train_episode(agent, env, rpm):
 
 
 # 评估 agent, 跑 5 个episode，总reward求平均
-def run_evaluate_episodes(agent, env, render=False):
+def run_evaluate_episodes(agent):
     eval_reward = []
-    for i in range(5):
-        obs = env.reset()
+    envtest = gym.make('CartPole-v1', render_mode="human")
+    for i in range(3):
+        obs = envtest.reset()[0]
         episode_reward = 0
         while True:
             action = agent.predict(obs)  # 预测动作，只选最优动作
-            obs, reward, done, _ = env.step(action)
+            obs, reward, done,truncated ,_= envtest.step(action)
             episode_reward += reward
-            if render:
-                env.render()
-            if done:
+            if done or truncated :
                 break
         eval_reward.append(episode_reward)
+    envtest.close()
     return np.mean(eval_reward)
 
 
 def main():
     # CartPole-v0: expected reward > 180
     # MountainCar-v0 : expected reward > -120
-    env = gym.make('CartPole-v0')
+    env = gym.make('CartPole-v1')
     obs_dim = env.observation_space.shape[0]  # CartPole-v0: (4,)
     act_dim = env.action_space.n  # CartPole-v0: 2
 
@@ -112,18 +104,18 @@ def main():
     while len(rpm) < MEMORY_WARMUP_SIZE:
         run_train_episode(agent, env, rpm)
 
-    max_episode = 2000
+    max_episode = 2001
 
     # start train
     episode = 0
     while episode < max_episode:  # 训练max_episode个回合，test部分不计算入episode数量
         # train part
-        for i in range(50):
+        for i in range(200):
             total_reward = run_train_episode(agent, env, rpm)
             episode += 1
 
         # test part       render=True 查看显示效果
-        eval_reward = run_evaluate_episodes(agent, env, render=False)
+        eval_reward = run_evaluate_episodes(agent)
         logger.info('episode:{}    e_greed:{}   Test reward:{}'.format(
             episode, agent.e_greed, eval_reward))
 
