@@ -14,10 +14,9 @@
 
 # -*- coding: utf-8 -*-
 
-import gym
+import gymnasium as gym
 import turtle
 import numpy as np
-assert gym.__version__ == "0.18.0", "[Version WARNING] please try `pip install gym==0.18.0`"
 
 # turtle tutorial : https://docs.python.org/3.3/library/turtle.html
 
