@@ -14,7 +14,7 @@
 
 # -*- coding: utf-8 -*-
 
-import gym
+import gymnasium as gym
 import turtle
 import numpy as np
 
@@ -23,8 +23,9 @@ import numpy as np
 
 def GridWorld(gridmap=None, is_slippery=False):
     if gridmap is None:
-        gridmap = ['SFFF', 'FHFH', 'FFFH', 'HFFG']
-    env = gym.make("FrozenLake-v0", desc=gridmap, is_slippery=False)
+        gridmap = ['SFFFF', 'FFHFH', 'FFFFH', 'HFFFG','HFFFF']
+    #env = gym.make("FrozenLake-v1", desc=gridmap,  render_mode="human",is_slippery=False)
+    env = gym.make("FrozenLake-v1", desc=gridmap, is_slippery=False)
     env = FrozenLakeWapper(env)
     return env
 
@@ -157,22 +158,24 @@ class CliffWalkingWapper(gym.Wrapper):
             for i in range(1, self.max_x):
                 self.draw_y_line(
                     x=i * self.unit, y0=0, y1=self.max_y * self.unit)
-
             for i in range(1, self.max_x - 1):
                 self.draw_box(i, 0, 'black')
             self.draw_box(self.max_x - 1, 0, 'yellow')
             self.t.shape('turtle')
 
+
         x_pos = self.s % self.max_x
         y_pos = self.max_y - 1 - int(self.s / self.max_x)
         self.move_player(x_pos, y_pos)
+
+    
 
 
 if __name__ == '__main__':
     # 环境1：FrozenLake, 可以配置冰面是否是滑的
     # 0 left, 1 down, 2 right, 3 up
-    env = gym.make("FrozenLake-v0", is_slippery=False)
-    env = FrozenLakeWapper(env)
+    # env = gym.make("FrozenLake-v1", render_mode="human",is_slippery=False)
+    # env = FrozenLakeWapper(env)
 
     # 环境2：CliffWalking, 悬崖环境
     # env = gym.make("CliffWalking-v0")  # 0 up, 1 right, 2 down, 3 left
@@ -184,12 +187,12 @@ if __name__ == '__main__':
     #         'FHFF',
     #         'FFFF',
     #         'HFGF' ]
-    # env = GridWorld(gridmap)
+    env = GridWorld()
 
     env.reset()
     for step in range(10):
         action = np.random.randint(0, 4)
-        obs, reward, done, info = env.step(action)
+        obs, reward, done, _,info = env.step(action)
         print('step {}: action {}, obs {}, reward {}, done {}, info {}'.format(\
                 step, action, obs, reward, done, info))
-        # env.render() # 渲染一帧图像
+        env.render() # 渲染一帧图像

@@ -32,6 +32,7 @@ class SarsaAgent(object):
 
     # 根据输入观察值，采样输出的动作值，带探索
     def sample(self, obs):
+        obs = int(obs)  # 确保 obs 是整数索引
         if np.random.uniform(0, 1) < (1.0 - self.epsilon):  #根据table的Q值选动作
             action = self.predict(obs)
         else:
@@ -40,8 +41,10 @@ class SarsaAgent(object):
 
     # 根据输入观察值，预测输出的动作值
     def predict(self, obs):
+        obs = int(obs)  # 确保 obs 是整数索引
         Q_list = self.Q[obs, :]
         maxQ = np.max(Q_list)
+        
         action_list = np.where(Q_list == maxQ)[0]  # maxQ可能对应多个action
         action = np.random.choice(action_list)
         return action

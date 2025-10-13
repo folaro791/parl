@@ -16,7 +16,6 @@
 
 import numpy as np
 
-
 class QLearningAgent(object):
     def __init__(self,
                  obs_n,
@@ -62,6 +61,7 @@ class QLearningAgent(object):
             target_Q = reward + self.gamma * np.max(
                 self.Q[next_obs, :])  # Q-learning
         self.Q[obs, action] += self.lr * (target_Q - predict_Q)  # 修正q
+
 
     # 把 Q表格 的数据保存到文件中
     def save(self):

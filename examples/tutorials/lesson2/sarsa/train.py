@@ -14,22 +14,26 @@
 
 # -*- coding: utf-8 -*-
 
-import gym
-from gridworld import CliffWalkingWapper, FrozenLakeWapper
+import gymnasium as gym
+from gridworld import CliffWalkingWapper
 from agent import SarsaAgent
 import time
-assert gym.__version__ == "0.18.0", "[Version WARNING] please try `pip install gym==0.18.0`"
+
 
 
 def run_episode(env, agent, render=False):
-    total_steps = 0  # 记录每个episode走了多少step
+    total_steps = 1  # 记录每个episode走了多少step
     total_reward = 0
 
-    obs = env.reset()  # 重置环境, 重新开一局（即开始新的一个episode）
+    obs = env.reset()[0]
     action = agent.sample(obs)  # 根据算法选择一个动作
 
     while True:
-        next_obs, reward, done, _ = env.step(action)  # 与环境进行一个交互
+        if render:
+            env.render()  #渲染新的一帧图形
+            render_q_table(agent.Q, total_steps,(obs, action))  # 终端打印Q表并高亮将要更新的Q值
+            time.sleep(0.4)  # 暂停方便观察
+        next_obs, reward, done, _,_ = env.step(action)
         next_action = agent.sample(next_obs)  # 根据算法选择一个动作
         # 训练 Sarsa 算法
         agent.learn(obs, action, reward, next_obs, next_action, done)
@@ -38,23 +42,57 @@ def run_episode(env, agent, render=False):
         obs = next_obs  # 存储上一个观察值
         total_reward += reward
         total_steps += 1  # 计算step数
-        if render:
-            env.render()  #渲染新的一帧图形
+            
         if done:
             break
     return total_reward, total_steps
 
+def render_q_table(q_table, steps,action_step=None):
+        print("Q-table step:",steps)
+        highlight = action_step
+        RED='\033[91m'
+        RESET = '\033[0m'
+
+        for y in range(4): 
+            up_row = []
+            second_row = []
+            third_row = []
+            down_row = []
+            for x in range(12):
+                s = y * 12 + x
+                q = q_table[s]
+                # 判断是否高亮
+                def fmt(val, a, label):
+                    if highlight == (s, a):
+                        return f" {RED}{label}{val:>7.2f}{RESET} "
+                    else:
+                        return f" {label}{val:>7.2f} "
+                up_row.append(fmt(q[0], 0, 'U:'))
+                second_row.append(fmt(q[1], 1, 'R:'))
+                third_row.append(fmt(q[2], 2, 'D:'))
+                down_row.append(fmt(q[3], 3, 'L:'))
+            print(''.join(up_row))
+            print(''.join(second_row))
+            print(''.join(third_row))
+            print(''.join(down_row))
+            print()
+        print("-"*120)
 
 def test_episode(env, agent):
     total_reward = 0
-    obs = env.reset()
+    obs = env.reset()[0]
+    step=1
     while True:
+        env.render()
         action = agent.predict(obs)  # greedy
-        next_obs, reward, done, _ = env.step(action)
+        render_q_table(agent.Q, step,(obs, action))  # 终端打印Q表并高亮将要更新的Q值
+        
+        time.sleep(0.5)
+        next_obs, reward, done, _ ,__= env.step(action)
         total_reward += reward
         obs = next_obs
-        time.sleep(0.5)
-        env.render()
+        step+=1
+
         if done:
             print('test reward = %.1f' % (total_reward))
             break
@@ -75,13 +113,13 @@ def main():
         e_greed=0.1)
 
     is_render = False
-    for episode in range(500):
+    for episode in range(1,501):
         ep_reward, ep_steps = run_episode(env, agent, is_render)
         print('Episode %s: steps = %s , reward = %.1f' % (episode, ep_steps,
                                                           ep_reward))
 
         # 每隔20个episode渲染一下看看效果
-        if episode % 20 == 0:
+        if episode % 100 == 0:
             is_render = True
         else:
             is_render = False

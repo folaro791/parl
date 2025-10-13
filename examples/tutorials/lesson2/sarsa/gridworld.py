@@ -14,7 +14,7 @@
 
 # -*- coding: utf-8 -*-
 
-import gym
+import gymnasium as gym
 import turtle
 import numpy as np
 
