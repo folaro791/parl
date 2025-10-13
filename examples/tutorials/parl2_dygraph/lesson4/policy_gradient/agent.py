@@ -15,7 +15,7 @@
 #-*- coding: utf-8 -*-
 
 import parl
-import paddle
+import torch
 import numpy as np
 
 
@@ -26,29 +26,27 @@ class Agent(parl.Agent):
     def sample(self, obs):
         """ 根据观测值 obs 采样（带探索）一个动作
         """
-        obs = paddle.to_tensor(obs, dtype='float32')
-        prob = self.alg.predict(obs)
-        prob = prob.numpy()
-        act = np.random.choice(len(prob), 1, p=prob)[0]  # 根据动作概率选取动作
+        obs_tensor = torch.tensor(obs, dtype=torch.float32)
+        prob = self.alg.predict(obs_tensor)
+        prob_np = prob.detach().cpu().numpy()
+        act = np.random.choice(len(prob_np), 1, p=prob_np)[0]  # 根据动作概率选取动作
         return act
 
     def predict(self, obs):
         """ 根据观测值 obs 选择最优动作
         """
-        obs = paddle.to_tensor(obs, dtype='float32')
-        prob = self.alg.predict(obs)
-        act = int(prob.argmax())  # 根据动作概率选择概率最高的动作
+        obs_tensor = torch.tensor(obs, dtype=torch.float32)
+        prob = self.alg.predict(obs_tensor)
+        act = int(torch.argmax(prob).item())  # 根据动作概率选择概率最高的动作
         return act
 
     def learn(self, obs, act, reward):
         """ 根据训练数据更新一次模型参数
         """
-        act = np.expand_dims(act, axis=-1)
-        reward = np.expand_dims(reward, axis=-1)
 
-        obs = paddle.to_tensor(obs, dtype='float32')
-        act = paddle.to_tensor(act, dtype='int32')
-        reward = paddle.to_tensor(reward, dtype='float32')
+        obs_tensor = torch.tensor(obs, dtype=torch.float32)
+        act_tensor = torch.tensor(act, dtype=torch.int64)
+        reward_tensor = torch.tensor(reward, dtype=torch.float32)
 
-        loss = self.alg.learn(obs, act, reward)
+        loss = self.alg.learn(obs_tensor, act_tensor, reward_tensor)
         return float(loss)

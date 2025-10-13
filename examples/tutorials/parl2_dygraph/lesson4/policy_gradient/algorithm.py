@@ -15,9 +15,8 @@
 #-*- coding: utf-8 -*-
 
 import parl
-import paddle
-from paddle.distribution import Categorical
-import paddle.nn.functional as F
+import torch
+import torch.nn.functional as F
 
 
 class PolicyGradient(parl.Algorithm):
@@ -28,11 +27,9 @@ class PolicyGradient(parl.Algorithm):
             model (parl.Model): policy的前向网络.
             lr (float): 学习率.
         """
-        assert isinstance(lr, float)
 
         self.model = model
-        self.optimizer = paddle.optimizer.Adam(
-            learning_rate=lr, parameters=self.model.parameters())
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
     def predict(self, obs):
         """ 使用policy model预测输出的动作概率
@@ -46,13 +43,11 @@ class PolicyGradient(parl.Algorithm):
         prob = self.model(obs)  # 获取输出动作概率
         # log_prob = Categorical(prob).log_prob(action) # 交叉熵
         # loss = paddle.mean(-1 * log_prob * reward)
-        action_onehot = paddle.squeeze(
-            F.one_hot(action, num_classes=prob.shape[1]), axis=1)
-        log_prob = paddle.sum(paddle.log(prob) * action_onehot, axis=-1)
-        reward = paddle.squeeze(reward, axis=1)
-        loss = paddle.mean(-1 * log_prob * reward)
+        action_onehot = F.one_hot(action, num_classes=prob.shape[1]).float()  # [batch, act_dim]
+        log_prob = torch.sum(torch.log(prob) * action_onehot, dim=1)  # [batch]
+        loss = torch.mean(-1 * log_prob * reward)
 
-        self.optimizer.clear_grad()
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return loss
+        return loss.item()

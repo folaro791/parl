@@ -14,13 +14,12 @@
 
 #-*- coding: utf-8 -*-
 
-import paddle
-import paddle.nn as nn
-import paddle.nn.functional as F
-import parl
+import torch
+import numpy as np
+import torch.nn as nn
+import torch.nn.functional as F
 
-
-class Model(parl.Model):
+class Model(nn.Module):
     """ 使用全连接网络.
 
     参数:
@@ -35,6 +34,6 @@ class Model(parl.Model):
         self.fc2 = nn.Linear(hid1_size, act_dim)
 
     def forward(self, x):  # 可直接用 model = Model(5); model(obs)调用
-        out = paddle.tanh(self.fc1(x))
-        prob = F.softmax(self.fc2(out), axis=-1)
+        out = torch.tanh(self.fc1(x))
+        prob = F.softmax(self.fc2(out))
         return prob

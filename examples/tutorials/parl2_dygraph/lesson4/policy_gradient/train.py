@@ -15,15 +15,12 @@
 #-*- coding: utf-8 -*-
 
 # 检查版本
-import gym
+import torch
+import gymnasium as gym
 import parl
 import paddle
-assert paddle.__version__ == "2.2.0", "[Version WARNING] please try `pip install paddlepaddle==2.2.0`"
-assert parl.__version__ == "2.0.3", "[Version WARNING] please try `pip install parl==2.0.3`"
-assert gym.__version__ == "0.18.0", "[Version WARNING] please try `pip install gym==0.18.0`"
 
 import os
-import gym
 import numpy as np
 import parl
 
@@ -39,33 +36,32 @@ LEARNING_RATE = 1e-3
 # 训练一个episode
 def run_train_episode(agent, env):
     obs_list, action_list, reward_list = [], [], []
-    obs = env.reset()
+    obs = env.reset()[0]
     while True:
         obs_list.append(obs)
         action = agent.sample(obs)
         action_list.append(action)
 
-        obs, reward, done, info = env.step(action)
+        obs, reward, done, trancated,info = env.step(action)
         reward_list.append(reward)
 
-        if done:
+        if done or trancated:
             break
     return obs_list, action_list, reward_list
 
 
 # 评估 agent, 跑 5 个episode，总reward求平均
-def run_evaluate_episodes(agent, env, render=False):
+def run_evaluate_episodes(agent):
     eval_reward = []
-    for i in range(5):
-        obs = env.reset()
+    env = gym.make('CartPole-v1', render_mode="human")
+    for i in range(1):
+        obs = env.reset()[0]
         episode_reward = 0
         while True:
             action = agent.predict(obs)
-            obs, reward, isOver, _ = env.step(action)
+            obs, reward, isOver, trancated ,_= env.step(action)
             episode_reward += reward
-            if render:
-                env.render()
-            if isOver:
+            if isOver or trancated:
                 break
         eval_reward.append(episode_reward)
     return np.mean(eval_reward)
@@ -79,7 +75,7 @@ def calc_reward_to_go(reward_list, gamma=1.0):
 
 
 def main():
-    env = gym.make('CartPole-v0')
+    env = gym.make('CartPole-v1')
     # env = env.unwrapped # Cancel the minimum score limit
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.n
@@ -96,7 +92,7 @@ def main():
     #     run_evaluate_episodes(agent, env, render=True)
     #     exit()
 
-    for i in range(1000):
+    for i in range(2000):
         obs_list, action_list, reward_list = run_train_episode(agent, env)
         if i % 10 == 0:
             logger.info("Episode {}, Reward Sum {}.".format(
@@ -109,7 +105,7 @@ def main():
         agent.learn(batch_obs, batch_action, batch_reward)
         if (i + 1) % 100 == 0:
             # render=True 查看显示效果
-            total_reward = run_evaluate_episodes(agent, env, render=False)
+            total_reward = run_evaluate_episodes(agent)
             logger.info('Test reward: {}'.format(total_reward))
 
     # save the parameters to ./model.ckpt
