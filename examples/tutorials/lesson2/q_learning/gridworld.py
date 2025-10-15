@@ -25,7 +25,7 @@ def GridWorld(gridmap=None, is_slippery=False):
     if gridmap is None:
         gridmap = ['SFFFF', 'FFHFH', 'FFFFH', 'HFFFG','HFFFF']
     #env = gym.make("FrozenLake-v1", desc=gridmap,  render_mode="human",is_slippery=False)
-    env = gym.make("FrozenLake-v1", desc=gridmap, is_slippery=False)
+    env = gym.make("FrozenLake-v1", render_mode="human",desc=gridmap, is_slippery=False)
     env = FrozenLakeWapper(env)
     return env
 
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     env = GridWorld()
 
     env.reset()
-    for step in range(10):
+    for step in range(100):
         action = np.random.randint(0, 4)
         obs, reward, done, _,info = env.step(action)
         print('step {}: action {}, obs {}, reward {}, done {}, info {}'.format(\

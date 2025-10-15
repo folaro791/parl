@@ -15,8 +15,8 @@
 #-*- coding: utf-8 -*-
 
 import parl
-import paddle
-import paddle.nn.functional as F
+import torch
+import torch.nn.functional as F
 from copy import deepcopy
 
 
@@ -49,10 +49,8 @@ class DDPG(parl.Algorithm):
 
         self.model = model
         self.target_model = deepcopy(self.model)
-        self.actor_optimizer = paddle.optimizer.Adam(
-            learning_rate=actor_lr, parameters=self.model.get_actor_params())
-        self.critic_optimizer = paddle.optimizer.Adam(
-            learning_rate=critic_lr, parameters=self.model.get_critic_params())
+        self.actor_optimizer = torch.optim.Adam(self.model.get_actor_params(), lr=actor_lr)
+        self.critic_optimizer = torch.optim.Adam(self.model.get_critic_params(), lr=critic_lr)
 
     def predict(self, obs):
         """ 使用 self.model 的 actor model 来预测动作
@@ -62,46 +60,34 @@ class DDPG(parl.Algorithm):
     def learn(self, obs, action, reward, next_obs, terminal):
         """ 用DDPG算法更新 actor 和 critic
         """
-        critic_loss = self._critic_learn(obs, action, reward, next_obs,
-                                         terminal)
+        critic_loss = self._critic_learn(obs, action, reward, next_obs, terminal)
         actor_loss = self._actor_learn(obs)
-
         self.sync_target()
         return critic_loss, actor_loss
 
     def _critic_learn(self, obs, action, reward, next_obs, terminal):
-        with paddle.no_grad():
-            # 计算 target Q
-            target_Q = self.target_model.value(
-                next_obs, self.target_model.policy(next_obs))
-            terminal = paddle.cast(terminal, dtype='float32')
+        with torch.no_grad():
+            target_Q = self.target_model.value(next_obs, self.target_model.policy(next_obs))
+            terminal = terminal.float()
             target_Q = reward + ((1. - terminal) * self.gamma * target_Q)
 
-        # 获取 Q
         current_Q = self.model.value(obs, action)
-
-        # 计算 Critic loss
         critic_loss = F.mse_loss(current_Q, target_Q)
-
-        # 优化 Critic 参数
-        self.critic_optimizer.clear_grad()
+        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
-        return critic_loss
+        return critic_loss.item()
 
     def _actor_learn(self, obs):
-        # 计算 Actor loss
         actor_loss = -self.model.value(obs, self.model.policy(obs)).mean()
-
-        # 优化 Actor 参数
-        self.actor_optimizer.clear_grad()
+        self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
-        return actor_loss
+        return actor_loss.item()
 
     def sync_target(self, decay=None):
-        """ self.target_model从self.model复制参数过来，若decay不为None,则是软更新
-        """
+        """ 软更新 target_model 参数 """
         if decay is None:
             decay = 1.0 - self.tau
-        self.model.sync_weights_to(self.target_model, decay=decay)
+        for target_param, param in zip(self.target_model.parameters(), self.model.parameters()):
+            target_param.data.copy_(decay * target_param.data + (1.0 - decay) * param.data)

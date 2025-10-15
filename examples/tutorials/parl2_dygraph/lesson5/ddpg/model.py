@@ -15,9 +15,9 @@
 #-*- coding: utf-8 -*-
 
 import parl
-import paddle
-import paddle.nn as nn
-import paddle.nn.functional as F
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class Model(parl.Model):
@@ -48,8 +48,10 @@ class Actor(parl.Model):
         self.l2 = nn.Linear(hid_size, act_dim)
 
     def forward(self, obs):
+        if not torch.is_tensor(obs):
+            obs = torch.tensor(obs, dtype=torch.float32)
         hid = F.relu(self.l1(obs))
-        means = paddle.tanh(self.l2(hid))
+        means = torch.tanh(self.l2(hid))
         return means
 
 
@@ -62,7 +64,11 @@ class Critic(parl.Model):
         self.l2 = nn.Linear(hid_size, 1)
 
     def forward(self, obs, act):
-        concat = paddle.concat([obs, act], axis=1)
+        if not torch.is_tensor(obs):
+            obs = torch.tensor(obs, dtype=torch.float32)
+        if not torch.is_tensor(act):
+            act = torch.tensor(act, dtype=torch.float32)
+        concat = torch.cat([obs, act], dim=1)
         hid = F.relu(self.l1(concat))
         Q = self.l2(hid)
         return Q

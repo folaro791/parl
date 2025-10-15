@@ -15,13 +15,6 @@
 #-*- coding: utf-8 -*-
 
 # 检查版本
-import gym
-import parl
-import paddle
-assert paddle.__version__ == "2.2.0", "[Version WARNING] please try `pip install paddlepaddle==2.2.0`"
-assert parl.__version__ == "2.0.3", "[Version WARNING] please try `pip install parl==2.0.3`"
-assert gym.__version__ == "0.18.0", "[Version WARNING] please try `pip install gym==0.18.0`"
-
 import numpy as np
 from parl.utils import logger
 
@@ -40,7 +33,7 @@ MEMORY_WARMUP_SIZE = MEMORY_SIZE // 20  # 预存一部分经验之后再开始�
 BATCH_SIZE = 128
 REWARD_SCALE = 0.1  # reward 缩放系数
 NOISE = 0.1  # 动作噪声方差
-TRAIN_EPISODE = int(6e3)  # 训练的总episode数
+TRAIN_EPISODE = int(5e3)  # 训练的总episode数
 
 
 # 训练一个episode
@@ -51,10 +44,14 @@ def run_train_episode(agent, env, rpm):
     while True:
         steps += 1
         batch_obs = np.expand_dims(obs, axis=0)
-        action = agent.sample(batch_obs.astype('float32'))
-        action = action[0]  # ContinuousCartPoleE输入的action为一个实数
+        action = agent.predict(batch_obs.astype('float32'))
 
-        next_obs, reward, done, info = env.step(action)
+        # 增加探索扰动, 输出限制在 [-1.0, 1.0] 范围内
+        action = np.clip(np.random.normal(action, NOISE), -1.0, 1.0)
+        action=action[0]
+
+        next_obs, reward, done, trancated,info = env.step(action,steps)
+
 
         action = [action]  # 方便存入replaymemory
         rpm.append((obs, action, REWARD_SCALE * reward, next_obs, done))
@@ -68,7 +65,7 @@ def run_train_episode(agent, env, rpm):
         obs = next_obs
         total_reward += reward
 
-        if done or steps >= 200:
+        if done or trancated:
             break
     return total_reward
 
@@ -76,6 +73,7 @@ def run_train_episode(agent, env, rpm):
 # 评估 agent, 跑 5 个episode，总reward求平均
 def run_evaluate_episodes(agent, env, render=False):
     eval_reward = []
+    env = ContinuousCartPoleEnv(render_mode="human" if render else None)
     for i in range(5):
         obs = env.reset()
         total_reward = 0
@@ -83,19 +81,20 @@ def run_evaluate_episodes(agent, env, render=False):
         while True:
             batch_obs = np.expand_dims(obs, axis=0)
             action = agent.predict(batch_obs.astype('float32'))
-            action = action[0]  # ContinuousCartPoleE输入的action为一个实数
 
             steps += 1
-            next_obs, reward, done, info = env.step(action)
+            next_obs, reward, done, trancated,info = env.step(action,steps)
 
             obs = next_obs
             total_reward += reward
 
             if render:
                 env.render()
-            if done or steps >= 200:
+            if done or trancated:
                 break
+        
         eval_reward.append(total_reward)
+    env.close()
     return np.mean(eval_reward)
 
 
@@ -122,10 +121,13 @@ def main():
         for i in range(100):
             total_reward = run_train_episode(agent, env, rpm)
             episode += 1
-
-        eval_reward = run_evaluate_episodes(agent, env, render=False)
-        logger.info('episode:{}    Test reward:{}'.format(
-            episode, eval_reward))
+        
+        if episode <3000:
+            logger.info('episode:[{}/{}]'.format(episode,TRAIN_EPISODE))
+        else:
+            eval_reward = run_evaluate_episodes(agent, env, render=True)
+            logger.info('episode:[{}/{}]  Test reward:{}'.format(
+            episode, TRAIN_EPISODE,eval_reward))
 
 
 if __name__ == '__main__':
